@@ -1,0 +1,479 @@
+# 结合MAGUS计算第一个POSCAR的能带结构的过程：
+
+-------------------------------------------------------------------------------
+计算能带方法以及经验来自：  
+[【软件推荐（2）——利用vaspkit进行从弛豫到能带的快速计算】 ](https://www.bilibili.com/video/BV1H3411t7Jt/?share_source=copy_web&vd_source=4d6f2be211d7cf0638f7932bf9c2c1c5)  
+作者：[落夜Lucifer](https://space.bilibili.com/14764564)
+
+-------------------------------------------------------------------------------
+
+如果你的magus算错了想重算：  
+```bash
+rm -rf calcFold/ formula_pool  log.txt  results/
+```
+如果你算出来20个结构想要计算能带(Bi2WO6为例)：
+```bash
+cp *.vasp ../poscars
+
+cd ../poscars
+
+# 创建对应文件夹并将每个POSCAR文件移动到对应文件夹
+for i in {1..10}; do
+  # 创建文件夹
+  mkdir "POSCAR$i"
+  
+  # 移动文件到文件夹中
+  mv "POSCAR$i" "POSCAR$i/"
+done
+```
+
+## 由POSCAR生成原胞结构
+
+首先是使用```vaspkit```的602功能将晶体结构转换成原胞结构，至于为什么要这样做暂时不是很懂。
+```bash
+(base) [root@node01 POSCAR_1]# vaspkit
+            \\\///
+           / _  _ \         Hey, you must know what you are doing.
+         (| (o)(o) |)       Otherwise you might get wrong results.
+ o-----.OOOo--()--oOOO.------------------------------------------o
+ |         VASPKIT Standard Edition 1.5.1 (27 Jan. 2024)         |
+ |         Lead Developer: Vei WANG (wangvei@icloud.com)         |
+ |      Main Contributors: Gang TANG, Nan XU & Jin-Cheng LIU     |
+ |  Online Tutorials Available on Website: https://vaspkit.com   |
+ o-----.oooO-----------------------------------------------------o
+        (   )   Oooo.                          VASPKIT Made Simple
+         \ (    (   )
+          \_)    ) /
+                (_/
+ ===================== Structural Utilities ======================
+ 01) VASP Input-Files Generator    02) Mechanical Properties
+ 03) K-Path for Band-Structure     04) Structure Editor
+ 05) Catalysis-ElectroChem Kit     06) Symmetry Analysis
+ 07) Materials Databases           08) Advanced Structure Models
+ ===================== Electronic Utilities ======================
+ 11) Density-of-States             21) Band-Structure
+ 23) 3D Band-Structure             25) Hybrid-DFT Band-Structure
+ 26) Fermi-Surface                 28) Band-Structure Unfolding
+ 31) Charge-Density Analysis       42) Potential Analysis
+ 44) Piezoelectric Properties      51) Wave-Function Analysis
+ 62) Magnetic Analysis             65) Spin-Texture
+ 68) Transport Properties
+ ======================== Misc Utilities =========================
+ 71) Optical Properties            72) Molecular-Dynamics Kit
+ 74) User Interface                78) VASP2other Interface
+ 84) ABACUS Interface              91) Semiconductor Kit
+ 92) 2D-Material Kit               95) Phonon Analysis
+ 0)  Quit
+ ------------>>
+6
+ ====================== Symmetry Options =========================
+ 601) Find Symmetry of Crystal
+ 602) Find Primitive Cell
+ 603) Find Standard Conventional Cell
+ 604) Find Symmetrically Equivalent Atoms
+ 608) Find Symmetry of Relaxed-Structure
+ 609) Find Symmetry of Molecule or Cluster
+
+ 0)   Quit
+ 9)   Back
+ ------------>>
+602
+
+ +-------------------------- Summary ----------------------------+
+                           Prototype: AB2C6
+           Total Atoms in Input Cell:   9
+     Lattice Constants in Input Cell:   8.932   8.932   3.830
+        Lattice Angles in Input Cell: 102.283 102.283 143.695
+       Total Atoms in Primitive Cell:   9
+ Lattice Constants in Primitive Cell:   8.932   8.932   3.830
+    Lattice Angles in Primitive Cell: 102.283 102.283 143.695
+                      Crystal System: Monoclinic
+                       Crystal Class: m
+                     Bravais Lattice: mC
+                  Space Group Number:   8
+                         Point Group:  4 [ Cs ]
+                       International: Cm
+                 Symmetry Operations:   2
+ +---------------------------------------------------------------+
+ -->> (01) Written PRIMCELL.vasp file.
+ o---------------------------------------------------------------o
+ |                       * ACKNOWLEDGMENTS *                     |
+ | Other Contributors (in no particular order): Peng-Fei LIU,    |
+ | Xue-Fei LIU, Dao-Xiong WU, Zhao-Fu ZHANG, Tian WANG, Qiang LI,|
+ | Ya-Chao LIU, Jiang-Shan ZHAO, Qi-Jing ZHENG, Yue QIU and You! |
+ | Advisors: Wen-Tong GENG, Yoshiyuki KAWAZOE                    |
+ :) Any Suggestions for Improvement are Welcome and Appreciated (:
+ |---------------------------------------------------------------|
+ |                          * CITATIONS *                        |
+ | When using VASPKIT in your research PLEASE cite the paper:    |
+ | [1] V. WANG, N. XU, J.-C. LIU, G. TANG, W.-T. GENG, VASPKIT: A|
+ | User-Friendly Interface Facilitating High-Throughput Computing|
+ | and Analysis Using VASP Code, Computer Physics Communications |
+ | 267, 108033, (2021), DOI: 10.1016/j.cpc.2021.108033           |
+ o---------------------------------------------------------------o
+ ```
+
+```bash
+(base) [root@node01 POSCAR_1]# ls
+POSCAR  PRIMCELL.vasp  SYMMETRY
+(base) [root@node01 POSCAR_1]# mv PRIMCELL.vasp ./POSCAR
+mv：是否覆盖"./POSCAR"？ y
+(base) [root@node01 POSCAR_1]# ls
+POSCAR  SYMMETRY
+```
+
+上面是对```magus```搜索到的```POSCAR_1```进行```vaspkit```的602功能找到原胞这里生成了```PRIMCELL.vasp```文件然后把它直接命名为```POSCAR```，把之前的```POSCAR```覆盖了就行  
+
+上面的输出有关于晶体结构的信息注意一下:  
+
+```bash
+ +-------------------------- Summary ----------------------------+
+                           Prototype: AB2C6
+           Total Atoms in Input Cell:   9
+     Lattice Constants in Input Cell:   8.932   8.932   3.830
+        Lattice Angles in Input Cell: 102.283 102.283 143.695
+       Total Atoms in Primitive Cell:   9
+ Lattice Constants in Primitive Cell:   8.932   8.932   3.830
+    Lattice Angles in Primitive Cell: 102.283 102.283 143.695
+                      Crystal System: Monoclinic
+                       Crystal Class: m
+                     Bravais Lattice: mC
+                  Space Group Number:   8
+                         Point Group:  4 [ Cs ]
+                       International: Cm
+                 Symmetry Operations:   2
+ +---------------------------------------------------------------+
+ ```
+
+
+## 分别建立弛豫、静态自洽、能带计算的三个文件夹,然后先生成POSCAR
+
+用的是103功能
+
+```bash
+(base) [root@node01 POSCAR_1]# mkdir relax scf band
+(base) [root@node01 POSCAR_1]# ls
+band  POSCAR  relax  scf  SYMMETRY
+(base) [root@node01 POSCAR_1]# vaspkit
+ ......
+ ......
+ ===================== Structural Utilities ======================
+ 01) VASP Input-Files Generator    02) Mechanical Properties
+ ......
+ ......
+ ------------>>
+1
+ ==================== VASP Input Files Options ===================
+ 101) Customize INCAR File
+ 102) Generate KPOINTS File for SCF Calculation
+ 103) Generate POTCAR File with Default Setting
+ 104) Generate POTCAR File with User Specified Potential
+ 105) Generate POSCAR File from cif (no fractional occupations)
+ 106) Generate POSCAR File from Material Studio xsd (retain fixes)
+ 107) Reformat POSCAR File in Specified Order of Elements
+ 108) Successive Procedure to Generate VASP Files and Check
+ 109) Submit Job Queue
+
+ 0)   Quit
+ 9)   Back
+ ------------>>
+103
+ +-------------------------- Summary ----------------------------+
+ POTCAR Type: PBE
+ Number of Elements: 3
+ POTCAR File No.1: [ POTCAR_O ], Valence Electron: 6.0
+ POTCAR File No.2: [ POTCAR_W_sv ], Valence Electron: 14.0
+ POTCAR File No.3: [ POTCAR_Bi_d ], Valence Electron: 15.0
+ Total Atoms: 9
+ Total Valence Electrons: 80.0
+ +---------------------------------------------------------------+
+ ......
+ ......
+(base) [root@node01 POSCAR_1]# ls
+band  POSCAR  POTCAR  relax  scf  SYMMETRY
+```
+同样注意一下：
+```bash
+ +-------------------------- Summary ----------------------------+
+ POTCAR Type: PBE
+ Number of Elements: 3
+ POTCAR File No.1: [ POTCAR_O ], Valence Electron: 6.0
+ POTCAR File No.2: [ POTCAR_W_sv ], Valence Electron: 14.0
+ POTCAR File No.3: [ POTCAR_Bi_d ], Valence Electron: 15.0
+ Total Atoms: 9
+ Total Valence Electrons: 80.0
+ +---------------------------------------------------------------+
+ ```
+
+先生成```POTCAR```是因为POTCAR是三个文件夹里通用的,复制```POSCAR```和```POTCAR```到第一步结构优化的文件夹中：
+
+```bash
+(base) [root@node01 POSCAR_1]# cp PO* relax/
+(base) [root@node01 POSCAR_1]# cd relax/
+(base) [root@node01 relax]# ls
+POSCAR  POTCAR
+```
+
+
+## 生成KPOINTS需要注意：
+
+
+对于三维块状材料而言：  
+生成```KOPINTS```时倒格子的分辨率精度的选取：进行弛豫（结构优化）的时候选```0.04```　静态自洽的时候```0.02```
+从经验上来说一般在结构优化的时候倒空间的取点密度```Size of K-Mesh```　×　实空间的晶格常数```Real-Space Lattice Constants```在```30```就够用了，静态自洽的时候```60```就够用了，如果是要计算输运性质的话大概```120```就够用了  
+
+上面是准备```relax```和```scf```这两个步骤生成```KPOINTS```文件时的经验(102功能)  
+
+而能带计算（```band```）步骤的时候生成```KPOINTS```需要使用303号功能，这个功能会把能带计算所需要的```KPOINTS```以```KPATH.in```文件的格式输出。  
+
+所以在303功能后直接把```KPATH.in```文件CP为```KPOINTS```
+并且修改高对称点之间的点比如200个  
+
+而且观察下面的例子会发现每次生成```KPOINTS```的时候都会自动生成一个```INCAR```,不用管直接删了，或者是后面生成```INCAR```的时候就会覆盖掉，尽量不要先生成```INCAR```,不然后面生成```KPOINTS```的时候会把原来的```INCAR```覆盖掉。
+
+```bash
+(base) [root@node01 relax]# vaspkit
+            \\\///
+           / _  _ \         Hey, you must know what you are doing.
+         (| (o)(o) |)       Otherwise you might get wrong results.
+ o-----.OOOo--()--oOOO.------------------------------------------o
+ |         VASPKIT Standard Edition 1.5.1 (27 Jan. 2024)         |
+ |         Lead Developer: Vei WANG (wangvei@icloud.com)         |
+ |      Main Contributors: Gang TANG, Nan XU & Jin-Cheng LIU     |
+ |  Online Tutorials Available on Website: https://vaspkit.com   |
+ o-----.oooO-----------------------------------------------------o
+        (   )   Oooo.                          VASPKIT Made Simple
+         \ (    (   )
+          \_)    ) /
+                (_/
+ ===================== Structural Utilities ======================
+ 01) VASP Input-Files Generator    02) Mechanical Properties
+ 03) K-Path for Band-Structure     04) Structure Editor
+ 05) Catalysis-ElectroChem Kit     06) Symmetry Analysis
+ 07) Materials Databases           08) Advanced Structure Models
+ ===================== Electronic Utilities ======================
+ 11) Density-of-States             21) Band-Structure
+ 23) 3D Band-Structure             25) Hybrid-DFT Band-Structure
+ 26) Fermi-Surface                 28) Band-Structure Unfolding
+ 31) Charge-Density Analysis       42) Potential Analysis
+ 44) Piezoelectric Properties      51) Wave-Function Analysis
+ 62) Magnetic Analysis             65) Spin-Texture
+ 68) Transport Properties
+ ======================== Misc Utilities =========================
+ 71) Optical Properties            72) Molecular-Dynamics Kit
+ 74) User Interface                78) VASP2other Interface
+ 84) ABACUS Interface              91) Semiconductor Kit
+ 92) 2D-Material Kit               95) Phonon Analysis
+ 0)  Quit
+ ------------>>
+1
+ ==================== VASP Input Files Options ===================
+ 101) Customize INCAR File
+ 102) Generate KPOINTS File for SCF Calculation
+ 103) Generate POTCAR File with Default Setting
+ 104) Generate POTCAR File with User Specified Potential
+ 105) Generate POSCAR File from cif (no fractional occupations)
+ 106) Generate POSCAR File from Material Studio xsd (retain fixes)
+ 107) Reformat POSCAR File in Specified Order of Elements
+ 108) Successive Procedure to Generate VASP Files and Check
+ 109) Submit Job Queue
+
+ 0)   Quit
+ 9)   Back
+ ------------>>
+102
+ ======================== K-Mesh Scheme ==========================
+ 1) Monkhorst-Pack Scheme
+ 2) Gamma Scheme
+ 3) Irreducible K-Points with Gamma Scheme
+
+ 0)   Quit
+ 9)   Back
+ ------------->>
+2
+ +---------------------------- Tip ------------------------------+
+   * Accuracy Levels: Gamma-Only: 0;
+                      Low: 0.06~0.04;
+                      Medium: 0.04~0.03;
+                      Fine: 0.02-0.01.
+   * 0.03-0.04 is Generally Precise Enough!
+ +---------------------------------------------------------------+
+ Input the K-spacing value (in unit of 2*pi/Angstrom):
+ ------------>>
+0.04
+ +-------------------------- Summary ----------------------------+
+ Reciprocal Lattice Vectors (in Units of 1/Angstrom):
+       1.1289882094      -0.3701575214       1.0551806375
+       1.1289882094       0.3701575214       1.0551806375
+       0.0000000000       0.0000000000       2.2457779562
+ Reciprocal Lattice Constants:   1.5890   1.5890   2.2458
+ Real-Space Lattice Constants:   8.9317   8.9317   3.8295
+ Size of K-Mesh:    6    6    9
+ +---------------------------------------------------------------+
+ -->> (01) Written KPOINTS File.
+ -->> (02) Written INCAR file!
+ o---------------------------------------------------------------o
+ |                       * ACKNOWLEDGMENTS *                     |
+ | Other Contributors (in no particular order): Peng-Fei LIU,    |
+ | Xue-Fei LIU, Dao-Xiong WU, Zhao-Fu ZHANG, Tian WANG, Qiang LI,|
+ | Ya-Chao LIU, Jiang-Shan ZHAO, Qi-Jing ZHENG, Yue QIU and You! |
+ | Advisors: Wen-Tong GENG, Yoshiyuki KAWAZOE                    |
+ :) Any Suggestions for Improvement are Welcome and Appreciated (:
+ |---------------------------------------------------------------|
+ |                          * CITATIONS *                        |
+ | When using VASPKIT in your research PLEASE cite the paper:    |
+ | [1] V. WANG, N. XU, J.-C. LIU, G. TANG, W.-T. GENG, VASPKIT: A|
+ | User-Friendly Interface Facilitating High-Throughput Computing|
+ | and Analysis Using VASP Code, Computer Physics Communications |
+ | 267, 108033, (2021), DOI: 10.1016/j.cpc.2021.108033           |
+ o---------------------------------------------------------------o
+(base) [root@node01 relax]# ls
+INCAR  KPOINTS  POSCAR  POTCAR
+```
+
+取点密度```Size of K-Mesh```　×　实空间的晶格常数```Real-Space Lattice Constants```在这里看：
+
+```bash
+ +-------------------------- Summary ----------------------------+
+ Reciprocal Lattice Vectors (in Units of 1/Angstrom):
+       1.1289882094      -0.3701575214       1.0551806375
+       1.1289882094       0.3701575214       1.0551806375
+       0.0000000000       0.0000000000       2.2457779562
+ Reciprocal Lattice Constants:   1.5890   1.5890   2.2458
+ Real-Space Lattice Constants:   8.9317   8.9317   3.8295
+ Size of K-Mesh:    6    6    9
+ +---------------------------------------------------------------+
+ ```
+
+## 生成INCAR的时候需要注意：
+
+接下来生成结构弛豫的```INCAR```（LR），这一步会输出我们真正需要的```INCAR```我就直接删了，静态自洽```INCAR参数是SC```，计算能带结构的时候```INCAR```还是使用SC，但是需要启用```ICHAGE```这个参数来进行非自洽计算:  
+
+```bash
+(base) [root@node01 relax]# rm INCAR
+rm：是否删除普通文件 "INCAR"？y
+(base) [root@node01 relax]# ls
+KPOINTS  POSCAR  POTCAR
+(base) [root@node01 relax]# vaspkit
+            \\\///
+           / _  _ \         Hey, you must know what you are doing.
+         (| (o)(o) |)       Otherwise you might get wrong results.
+ o-----.OOOo--()--oOOO.------------------------------------------o
+ |         VASPKIT Standard Edition 1.5.1 (27 Jan. 2024)         |
+ |         Lead Developer: Vei WANG (wangvei@icloud.com)         |
+ |      Main Contributors: Gang TANG, Nan XU & Jin-Cheng LIU     |
+ |  Online Tutorials Available on Website: https://vaspkit.com   |
+ o-----.oooO-----------------------------------------------------o
+        (   )   Oooo.                          VASPKIT Made Simple
+         \ (    (   )
+          \_)    ) /
+                (_/
+ ===================== Structural Utilities ======================
+ 01) VASP Input-Files Generator    02) Mechanical Properties
+ 03) K-Path for Band-Structure     04) Structure Editor
+ 05) Catalysis-ElectroChem Kit     06) Symmetry Analysis
+ 07) Materials Databases           08) Advanced Structure Models
+ ===================== Electronic Utilities ======================
+ 11) Density-of-States             21) Band-Structure
+ 23) 3D Band-Structure             25) Hybrid-DFT Band-Structure
+ 26) Fermi-Surface                 28) Band-Structure Unfolding
+ 31) Charge-Density Analysis       42) Potential Analysis
+ 44) Piezoelectric Properties      51) Wave-Function Analysis
+ 62) Magnetic Analysis             65) Spin-Texture
+ 68) Transport Properties
+ ======================== Misc Utilities =========================
+ 71) Optical Properties            72) Molecular-Dynamics Kit
+ 74) User Interface                78) VASP2other Interface
+ 84) ABACUS Interface              91) Semiconductor Kit
+ 92) 2D-Material Kit               95) Phonon Analysis
+ 0)  Quit
+ ------------>>
+1
+ ==================== VASP Input Files Options ===================
+ 101) Customize INCAR File
+ 102) Generate KPOINTS File for SCF Calculation
+ 103) Generate POTCAR File with Default Setting
+ 104) Generate POTCAR File with User Specified Potential
+ 105) Generate POSCAR File from cif (no fractional occupations)
+ 106) Generate POSCAR File from Material Studio xsd (retain fixes)
+ 107) Reformat POSCAR File in Specified Order of Elements
+ 108) Successive Procedure to Generate VASP Files and Check
+ 109) Submit Job Queue
+
+ 0)   Quit
+ 9)   Back
+ ------------>>
+101
+ +---------------------------- Tip ------------------------------+
+ |          WARNNING: You MUST know what wou are doing!          |
+ |Some Parameters in INCAR file need to be set/adjusted manually.|
+ +---------------------------------------------------------------+
+ ======================== INCAR Options ==========================
+ ST) Static-Calculation            SR) Standard Relaxation
+ MG) Magnetic Properties           SO) Spin-Orbit Coupling
+ D3) DFT-D3 no-damping Correction  H6) HSE06 Calculation
+ PU) DFT+U Calculation             MD) Molecular Dynamics
+ GW) GW0 Calculation               BS) BSE Calculation
+ DC) Elastic Constant              EL) ELF Calculation
+ BD) Bader Charge Analysis         OP) Optical Properties
+ EC) Static Dielectric Constant    PC) Decomposed Charge Density
+ PH) Phonon-Calculation            PY) Phonon with Phononpy
+ NE) Nudged Elastic Band (NEB)     DM) The Dimer Method
+ FQ) Frequence Calculation         LR) Lattice Relaxation
+ MT) Meta-GGA Calculation          PZ) Piezoelectric Calculation
+
+ 0)   Quit
+ 9)   Back
+ ------------>>
+ Input Key-Parameters (STH6D3 means HSE06-D3 Static-Calcualtion)
+LR
+ -->> (01) Written INCAR file!
+ o---------------------------------------------------------------o
+ |                       * ACKNOWLEDGMENTS *                     |
+ | Other Contributors (in no particular order): Peng-Fei LIU,    |
+ | Xue-Fei LIU, Dao-Xiong WU, Zhao-Fu ZHANG, Tian WANG, Qiang LI,|
+ | Ya-Chao LIU, Jiang-Shan ZHAO, Qi-Jing ZHENG, Yue QIU and You! |
+ | Advisors: Wen-Tong GENG, Yoshiyuki KAWAZOE                    |
+ :) Any Suggestions for Improvement are Welcome and Appreciated (:
+ |---------------------------------------------------------------|
+ |                          * CITATIONS *                        |
+ | When using VASPKIT in your research PLEASE cite the paper:    |
+ | [1] V. WANG, N. XU, J.-C. LIU, G. TANG, W.-T. GENG, VASPKIT: A|
+ | User-Friendly Interface Facilitating High-Throughput Computing|
+ | and Analysis Using VASP Code, Computer Physics Communications |
+ | 267, 108033, (2021), DOI: 10.1016/j.cpc.2021.108033           |
+ o---------------------------------------------------------------o
+```
+
+## 总结出简单的流程：
+### 由原始结构导出原胞
+vaspkit 602  
+生成了```PRIMCELL.vasp```文件然后把它直接命名为POSCAR，把之前的POSCAR覆盖了就行 
+
+### 生成三个过程都公用的POSCAR
+vaspkit 103  
+然后创建```relax``` ```scf``` ```band```  
+再```cp PO* relax/```
+
+### 生成KPOINTS
+```
+relax : 102  分辨率：0.04
+scf   : 102  分辨率：0.02
+band  : 303  KPATH.in --> KPOINTS  并且修改KPOINTS中高对称点之间的距离
+```
+生成KPOINTS的时候会生成INCAR，不用管，最后生成INCAR的时候就会覆盖掉
+### 每一步文件准备的时候最后再准备INCAR
+```
+relax : 101（LR）
+scf   : 101 (SC)
+band  : 101 (SC) + 启用ICHAGE参数进行非自洽计算
+```
+### 最后每一步进行的时候所准备的文件
+```
+relax : POSCAR POTCAR KPOINTS INCAR
+scf   : POSCAR POTCAR KPOINTS INCAR
+band  : POSCAR POTCAR KPOINTS INCAR CHGCAR
+
+```
+## 最后补充
+如果要是relax没有收敛的话CONTCAR直接cp为POSCAR，然后修改INCAR里面的EDIFF = 1E-6继续算
